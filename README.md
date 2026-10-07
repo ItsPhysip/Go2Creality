@@ -234,6 +234,12 @@ printer's only camera service):
 | viewer joining while another client holds the socket | needs a sync helper (fails with plain socat) | works |
 | socket released after the last viewer leaves | yes | yes |
 
+The most visible difference: Fluidd's live view now starts in 1 to 2 seconds. With the
+Helper Script's original `exec:ffmpeg -f h264 -i unix:...` source it took about 10 seconds,
+almost all of it ffmpeg analysing the stream before passing anything on. Creality's daemon
+sends SPS, PPS and an IDR frame to a new (first) client within ~0.3 s, and go2creality
+forwards them straight away.
+
 Upstream's own release binary is UPX-packed, which is worse than any number
 above: a packed binary keeps its ~20 MB of decompressed code in anonymous
 memory, which the kernel can never reclaim, for as long as it runs.
