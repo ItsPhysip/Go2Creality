@@ -12,6 +12,7 @@ import (
 	"github.com/AlexxIT/go2rtc/internal/mp4"
 	"github.com/AlexxIT/go2rtc/internal/rtsp"
 	"github.com/AlexxIT/go2rtc/internal/streams"
+	"github.com/AlexxIT/go2rtc/internal/unix"
 	"github.com/AlexxIT/go2rtc/internal/webrtc"
 	"github.com/AlexxIT/go2rtc/pkg/shell"
 )
@@ -52,6 +53,8 @@ func main() {
 		// Exec and script sources
 		{"exec", exec.Init},
 		{"ffmpeg", ffmpeg.Init},
+		// go2creality: unix socket source (Creality camera daemon)
+		{"unix", unix.Init},
 	}
 
 	for _, m := range modules {
