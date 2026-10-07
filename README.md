@@ -16,6 +16,29 @@ socket directly. All credit for the streaming engine belongs to
   to read the camera, and a viewer can connect while another client already
   holds the socket.
 
+## Why use it
+
+Measured on a Creality K1C 2025, against the Helper Script's go2rtc setup
+(upstream release binary, `exec:ffmpeg -f h264 -i unix:/tmp/h264_uds_chassis ...`):
+
+| | Helper Script go2rtc | Go2Creality |
+|---|---|---|
+| Fluidd/Mainsail live view starts | ~10 s | **1 to 2 s** |
+| Snapshot (`frame.jpeg`) | ~11 s | **~1 s** |
+| Free memory on the printer, idle | ~45 to 65 MB | **~93 to 105 MB** |
+| go2rtc private memory, idle | ~30 MB | **~1 to 6 MB** |
+| Extra process while someone watches | ffmpeg, 9 to 17 MB | **none** |
+| Recorded MP4 timing | 30 s of video stamped as ~15 s (plays at 2x) | **real time** |
+| Viewer joins while another client holds the camera socket | fails | **works** |
+| Binary | 4.5 MB UPX-packed (20.9 MB unpacked in memory) | **14 MB, not packed** |
+
+Where the time went: the old source started ffmpeg for every new viewer, and ffmpeg
+spends several seconds analysing the stream before it passes anything on.
+Creality's camera daemon sends SPS, PPS and an IDR frame to a new client within
+~0.3 s, and Go2Creality forwards them straight away. The memory comes back from
+not unpacking a UPX binary into RAM (see [Build](#build)), dropping unused
+modules, and not running a helper process.
+
 ## Download
 
 Prebuilt `go2creality_linux_mipsel` (linux/mipsle, for the K1C 2025's Ingenic X2600E) is on the
@@ -233,12 +256,6 @@ printer's only camera service):
 | RTSP, Home Assistant, WebRTC through Fluidd's nginx proxy | work | work |
 | viewer joining while another client holds the socket | needs a sync helper (fails with plain socat) | works |
 | socket released after the last viewer leaves | yes | yes |
-
-The most visible difference: Fluidd's live view now starts in 1 to 2 seconds. With the
-Helper Script's original `exec:ffmpeg -f h264 -i unix:...` source it took about 10 seconds,
-almost all of it ffmpeg analysing the stream before passing anything on. Creality's daemon
-sends SPS, PPS and an IDR frame to a new (first) client within ~0.3 s, and go2creality
-forwards them straight away.
 
 Upstream's own release binary is UPX-packed, which is worse than any number
 above: a packed binary keeps its ~20 MB of decompressed code in anonymous
