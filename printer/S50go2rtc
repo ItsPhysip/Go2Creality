@@ -1,0 +1,73 @@
+#!/bin/sh
+#
+# go2creality camera service for Creality printers (K1C 2025).
+# Install as /usr/apps/etc/init.d/S50go2rtc. It keeps the go2rtc service
+# name, so anything that restarts S50go2rtc (e.g. a RELOAD_CAMERA macro)
+# keeps working.
+#
+# Based on the Helper Script's S50go2rtc (credit: C0DEbrained), with fixes:
+#  - stop works: the original stopped by pidfile, but nothing ever wrote one,
+#    so stop killed nothing. This stops by process name, then cleans up any
+#    child processes go2rtc started (exec: helpers, ffmpeg snapshot jobs).
+#  - optional Go memory settings for this 205 MB board.
+#
+# Do not leave copies named S* in an init.d folder: the boot script runs
+# every S* file there, so a backup copy starts a second instance.
+#
+
+NAME="go2creality"
+BIN="/usr/data/go2rtc/${NAME}_linux_mipsel"
+CONFIG="/usr/data/go2rtc/go2rtc.yaml"
+
+# Go garbage collector target, percent. Lower = smaller heap, a little more
+# CPU. Empty = Go default (100).
+GO2RTC_GOGC=""
+# Soft cap on Go's memory, e.g. 12MiB. Empty = no cap.
+GO2RTC_GOMEMLIMIT=""
+
+go2rtc_pids() { pidof "${BIN##*/}"; }
+
+# Children of the given pids.
+child_pids() {
+  for p in /proc/[0-9]*; do
+    pp=$(awk '/^PPid:/{print $2}' "$p/status" 2>/dev/null)
+    for g in "$@"; do [ "$pp" = "$g" ] && echo "${p#/proc/}"; done
+  done
+}
+
+case "$1" in
+  start)
+    if [ -n "$(go2rtc_pids)" ]; then
+      echo "$NAME is already running"
+      exit 0
+    fi
+    echo "Starting $NAME..."
+    [ -n "$GO2RTC_GOGC" ] && export GOGC="$GO2RTC_GOGC"
+    [ -n "$GO2RTC_GOMEMLIMIT" ] && export GOMEMLIMIT="$GO2RTC_GOMEMLIMIT"
+    start-stop-daemon -S -x "$BIN" -- -d -c "$CONFIG"
+    ;;
+  stop)
+    echo "Stopping $NAME..."
+    g=$(go2rtc_pids)
+    [ -z "$g" ] && exit 0
+    kids=$(child_pids $g)
+    kill $g 2>/dev/null
+    i=0
+    while [ -n "$(go2rtc_pids)" ] && [ $i -lt 10 ]; do sleep 1; i=$((i+1)); done
+    g=$(go2rtc_pids)
+    [ -n "$g" ] && kill -9 $g 2>/dev/null
+    for k in $kids; do [ -d "/proc/$k" ] && kill $k 2>/dev/null; done
+    ;;
+  restart|reload|force-reload)
+    "$0" stop
+    sleep 1
+    "$0" start
+    ;;
+  status)
+    g=$(go2rtc_pids)
+    if [ -n "$g" ]; then echo "$NAME running (pid $g)"; else echo "$NAME stopped"; exit 1; fi
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+esac

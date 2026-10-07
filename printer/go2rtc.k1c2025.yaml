@@ -1,0 +1,25 @@
+# go2creality config for a Creality K1C 2025.
+# Install as /usr/data/go2rtc/go2rtc.yaml (see printer/S50go2rtc).
+#
+# Ports are go2rtc's defaults, so Fluidd/Mainsail (webrtc-go2rtc through the
+# nginx /go2rtc/ proxy), Home Assistant (rtsp://<printer>:8554/chassis) and
+# snapshot URLs (/go2rtc/api/frame.jpeg?src=chassis) need no changes.
+
+api:
+  listen: ":1984"
+  origin: "*"
+
+rtsp:
+  listen: ":8554"
+
+webrtc:
+  listen: ":8555"
+
+streams:
+  # Raw H.264 from Creality's camera daemon (quintusp), read directly from its
+  # unix socket. Connected only while someone is watching.
+  chassis: unix:/tmp/h264_uds_chassis
+
+  # Same stream through a helper process, as stock go2rtc needs it. Fails
+  # whenever another client is already connected to the socket (see README).
+  # chassis: "exec:/opt/bin/socat -u UNIX-CONNECT:/tmp/h264_uds_chassis -"

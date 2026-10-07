@@ -1,0 +1,25 @@
+# Side-by-side test config: runs go2creality next to a production go2rtc on
+# different ports. Run it in the foreground:
+#
+#   ./go2creality_linux_mipsel -c go2rtc.test.yaml
+#
+# Both instances read the same camera socket. go2creality copes with joining
+# second; stock go2rtc with exec:socat does not. If production is stock
+# go2rtc, a viewer that starts on production while this test is streaming
+# can fail (see README, "Two clients on the camera socket").
+
+api:
+  listen: ":1985"
+
+rtsp:
+  listen: ":8556"
+
+webrtc:
+  listen: ":8557"
+
+log:
+  level: info
+  unix: debug
+
+streams:
+  chassis: unix:/tmp/h264_uds_chassis
