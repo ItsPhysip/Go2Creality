@@ -1,7 +1,7 @@
-# go2creality
+# Go2Creality
 
 An ultra-lightweight [go2rtc](https://github.com/AlexxIT/go2rtc) build for onboard
-3D printer cameras, made for the Creality K1C 2025.
+3D printer cameras, made for and tested on the Creality K1C 2025.
 
 go2rtc does the real work here. AlexxIT wrote it; this fork only chooses which of
 its modules to compile and adds one small source that reads Creality's camera
@@ -15,6 +15,11 @@ socket directly. All credit for the streaming engine belongs to
 - New source: `unix:/tmp/h264_uds_chassis`. You no longer need socat or ffmpeg
   to read the camera, and a viewer can connect while another client already
   holds the socket.
+
+## Download
+
+Prebuilt `go2creality_linux_mipsel` (linux/mipsle, for the K1C 2025's Ingenic X2600E) is on the
+[Releases](../../releases) page, with its SHA-256. Or build it yourself (below).
 
 Configuration, API and everything else work as documented in
 [upstream's README for v1.9.14](https://github.com/AlexxIT/go2rtc/blob/v1.9.14/README.md),
@@ -172,7 +177,8 @@ stock go2rtc that connects to the socket second fails, as described above.
 ## Build
 
 ```sh
-GO=/opt/homebrew/opt/go@1.25/bin/go printer/build.sh   # -> build/go2creality_linux_mipsel
+printer/build.sh                       # uses `go` from PATH -> build/go2creality_linux_mipsel
+GO=/path/to/go1.25/bin/go printer/build.sh   # or pick a toolchain (upstream releases use Go 1.25)
 ```
 
 The script builds `GOOS=linux GOARCH=mipsle GOMIPS=hardfloat CGO_ENABLED=0`
@@ -214,10 +220,23 @@ behaviour above:
 | last viewer leaves | daemon sees the socket close |
 | daemon restarted mid-stream | go2rtc reconnects (1 s retries, then 5 s) and the stream resumes |
 
-On the printer, the production setup it replaces (stock go2rtc 1.9.14 unpacked,
-`exec:socat`) measured: go2rtc private memory (RssAnon) 1 to 5 MB, RssFile 14 to
-18 MB, socat ~3 MB while streaming, snapshots ~1 s. **go2creality has not been
-measured on the printer yet.**
+On a K1C 2025 (side by side with stock go2rtc 1.9.14 unpacked, then as the
+printer's only camera service):
+
+| | stock go2rtc 1.9.14 (unpacked) + helper | go2creality |
+|---|---|---|
+| idle, private memory (RssAnon) | 1 to 5 MB | 1.1 MB |
+| idle, code in memory (RssFile, reclaimable) | 14 to 18 MB | 9.8 MB |
+| one viewer streaming, total | ~26 MB in two processes | 13.6 MB, one process |
+| `frame.jpeg` | ~1 s | 0.9 to 1.3 s |
+| `stream.mp4`, 30 s capture | real time | 29.6 s, 445 frames, 1920x1080 |
+| RTSP, Home Assistant, WebRTC through Fluidd's nginx proxy | work | work |
+| viewer joining while another client holds the socket | needs a sync helper (fails with plain socat) | works |
+| socket released after the last viewer leaves | yes | yes |
+
+Upstream's own release binary is UPX-packed, which is worse than any number
+above: a packed binary keeps its ~20 MB of decompressed code in anonymous
+memory, which the kernel can never reclaim, for as long as it runs.
 
 ## Updating from upstream
 
